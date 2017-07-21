@@ -28,6 +28,7 @@ pub enum WResult<T, W, E> {
 
 impl<T, W, E> WResult<T, W, E> {
     /// Returns true if this `WResult` is `WOk`
+    #[inline]
     pub fn is_ok(&self) -> bool {
         match *self {
             WOk(_, _) => true,
@@ -36,6 +37,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Returns true if this `WResult` is `WErr`
+    #[inline]
     pub fn is_err(&self) -> bool {
         match *self {
             WOk(_, _) => true,
@@ -44,6 +46,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Returns `true` if this `WResult` is `WOk` with warnings
+    #[inline]
     pub fn is_warnings(&self) -> bool {
         match *self {
             WOk(_, ref ws) if !ws.is_empty() => true,
@@ -52,6 +55,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Returns true if this `WResult` is `WErr` or if it is `WOk` but contains warnings.
+    #[inline]
     pub fn is_warnings_or_err(&self) -> bool {
         match *self {
             WOk(_, ref ws) => ws.len() > 0,
@@ -61,6 +65,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// Converts this `WResult` to an `Option` by taking the taking the `WOk` value or mapping
     /// `WErr` to `None`. Any warnings are discarded.
+    #[inline]
     pub fn ok_discard(self) -> Option<T> {
         match self {
             WOk(t, _) => Some(t),
@@ -70,6 +75,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// Converts this `WResult` to an `Option` by taking the `WErr` variant or mapping `WOk` to
     /// `None`.
+    #[inline]
     pub fn err(self) -> Option<E> {
         match self {
             WOk(_, _) => None,
@@ -80,6 +86,7 @@ impl<T, W, E> WResult<T, W, E> {
     /// Converts this `WResult` to an `Option` by taking the `WOk` variant or mapping `WErr` to
     /// `None`. This function is similar to `ok_discard` except if there are any warnings then they
     /// are treated as errors and this function returns `None`.
+    #[inline]
     pub fn ok_werr(self) -> Option<T> {
         match self {
             WOk(t, ws) => match ws.len() {
@@ -91,6 +98,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Map the `WOk` value of this `WResult`, if any.
+    #[inline]
     pub fn map<U, F>(self, op: F) -> WResult<U, W, E>
         where F: FnOnce(T) -> U
     {
@@ -101,6 +109,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Map the `WErr` value of this `WResult`, if any.
+    #[inline]
     pub fn map_err<U, F>(self, op: F) -> WResult<T, W, U>
         where F: FnOnce(E) -> U
     {
@@ -111,6 +120,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Map the warnings of this `WResult`.
+    #[inline]
     pub fn map_warnings<U, F>(self, op: F) -> WResult<T, U, E>
         where F: FnMut(W) -> U
     {
@@ -122,6 +132,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// If `self` is `WOk`, returns `res` with the warnings from `self` accumulated into the final
     /// result. Otherwise returns the `WErr` value of `self`.
+    #[inline]
     pub fn and<U>(self, res: WResult<U, W, E>) -> WResult<U, W, E> {
         match self {
             WOk(_, mut ws0) => match res {
@@ -137,6 +148,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// If `self` is `WOk`, returns the result of applying `op` to `self`'s value and warnings.
     /// Otherwise returns the `WErr` value of `self`.
+    #[inline]
     pub fn and_then<U, V, F>(self, op: F) -> WResult<U, V, E>
         where F: FnOnce(T, Vec<W>) -> WResult<U, V, E>
     {
@@ -147,6 +159,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// If `self` is `WOk` returns `self`. Otherwise returns `res`.
+    #[inline]
     pub fn or<U>(self, res: WResult<T, W, U>) -> WResult<T, W, U> {
         match self {
             WOk(t, ws) => WOk(t, ws),
@@ -156,6 +169,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// If `self` is `WOk` returns `self`. Otherwise returns the result of applying `op` to
     /// `self`'s error value.
+    #[inline]
     pub fn or_else<U, F>(self, op: F) -> WResult<T, W, F>
         where F: FnOnce(E) -> WResult<T, W, F>
     {
@@ -166,6 +180,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Perform a 1:1 mapping to `Result`.
+    #[inline]
     pub fn result(self) -> Result<(T, Vec<W>), E> {
         match self {
             WOk(t, ws) => {
@@ -177,6 +192,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// Convert this `WResult<T, W, E>` to a `Result<T, E>`, discarding any errors. See also
     /// `result_log` for a version of this function that logs warnings.
+    #[inline]
     pub fn result_discard(self) -> Result<T, E> {
         match self {
             WOk(t, _) => Ok(t),
@@ -187,6 +203,7 @@ impl<T, W, E> WResult<T, W, E> {
     /// Convert this `WResult<T, W, E>` to a `Result<T, Result<Vec<W>, E>>`. This is a way to convert
     /// from `WResult` to `Result`, treating warnings as errors but allowing `W` and `E` to be two
     /// different types.
+    #[inline]
     pub fn result_werr_union(self) -> Result<T, Result<Vec<W>, E>> {
         match self {
             WOk(t, ws) => {
@@ -201,6 +218,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// If `self` is `WOk`, unwraps it discarding any warnings. Otherwise returns `optb`. See also
     /// `unwrap_log_or` for a version of this function that logs warnings.
+    #[inline]
     pub fn unwrap_discard_or(self, optb: T) -> T {
         match self {
             WOk(t, _) => t,
@@ -211,6 +229,7 @@ impl<T, W, E> WResult<T, W, E> {
     /// If `self` is `WOk`, unwraps it discarding any warnings. Otherwise returns the result of
     /// applying `op` to `self`'s error value. See also `unwrap_log_or_else` for a version of this
     /// function that logs warnings.
+    #[inline]
     pub fn unwrap_discard_or_else<F>(self, op: F) -> T
         where F: FnOnce(E) -> T
     {
@@ -221,6 +240,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// If `self` is `WOk` and has no warnings, unwraps it. Otherwise returns `optb`.
+    #[inline]
     pub fn unwrap_werr_or(self, optb: T) -> T {
         match self {
             WOk(t, ws) => match ws.len() {
@@ -233,6 +253,7 @@ impl<T, W, E> WResult<T, W, E> {
 
     /// If `self` is `WOk` and has no warnings, unwraps it. Otherwise returns the result of
     /// applying `op` to the union of the warnings and `self`'s error value.
+    #[inline]
     pub fn unwrap_werr_union_or_else<F>(self, op: F) -> T
         where F: FnOnce(Result<Vec<W>, E>) -> T
     {
@@ -250,6 +271,7 @@ impl<T, E> WResult<T, E, E> {
     /// Take the error value of this `WResult`, if any. Otherwise returns the first warning, if
     /// any. This function is the same as `WResult::err` except that warnings are treated as
     /// errors.
+    #[inline]
     pub fn err_werr(self) -> Option<E> {
         match self {
             WOk(_, mut ws) => {
@@ -262,6 +284,7 @@ impl<T, E> WResult<T, E, E> {
 
     /// Convert this `WResult` to a `Result` but treat warnings as errors. If there are multiple
     /// warnings the first is returned.
+    #[inline]
     pub fn result_werr(self) -> Result<T, Vec<E>> {
         match self {
             WOk(t, ws) => {
@@ -276,6 +299,7 @@ impl<T, E> WResult<T, E, E> {
 
     /// If `self` is `WOk` and has no warnings then unwrap it. Otherwise return the result of
     /// applying `op` to `self`'s error or first warning.
+    #[inline]
     pub fn unwrap_werr_or_else<F>(self, op: F) -> T
         where F: FnOnce(E) -> T
     {
@@ -297,6 +321,7 @@ impl<T, W, E> WResult<T, W, E>
 {
     /// Take the `WOk` value of `self`, if any. Warnings are logged using the `warn!` macro before
     /// being discarded.
+    #[inline]
     pub fn ok_log(self) -> Option<T> {
         match self {
             WOk(t, ws) => {
@@ -311,6 +336,7 @@ impl<T, W, E> WResult<T, W, E>
 
     /// Convert this `WResult<T, W, E>` to a `Result<T, E>`. Warnings are logged using the `warn!`
     /// macro before being discarded.
+    #[inline]
     pub fn result_log(self) -> Result<T, E> {
         match self {
             WOk(t, ws) => {
@@ -325,6 +351,7 @@ impl<T, W, E> WResult<T, W, E>
 
     /// If `self` is `WOk`, unwrap it and log any warnings using the `warn!` macro. Otherwise
     /// return `optb`.
+    #[inline]
     pub fn unwrap_log_or(self, optb: T) -> T {
         match self {
             WOk(t, ws) => {
@@ -339,6 +366,7 @@ impl<T, W, E> WResult<T, W, E>
 
     /// If `self` is `WOk`, unwrap it and log any warnings using the `warn!` macro. Otherwise
     /// return the result of applying `op` to `self`'s error value.
+    #[inline]
     pub fn unwrap_log_or_else<F>(self, op: F) -> T
         where F: FnOnce(E) -> T
     {
@@ -363,6 +391,7 @@ impl<T, W, E> WResult<T, W, E>
     /// # Panics
     /// Panics if the value is a `WErr` or `WOk` with warnings, with a panic message provided by
     /// the respective values.
+    #[inline]
     pub fn unwrap_werr(self) -> T {
         self.expect_werr(
             "called `WResult::unwrap()`on `WOk` value with warnings",
@@ -375,6 +404,7 @@ impl<T, W, E> WResult<T, W, E>
     /// # Panics
     /// Panics if the value is a `WErr` or `WOk` with warnings, with a panic message provided by
     /// the passed messages, and the content of the warnings/errors.
+    #[inline]
     pub fn expect_werr(self, msg_warn: &str, msg_error: &str) -> T {
         match self {
             WOk(t, ws) => match ws.is_empty() {
@@ -393,6 +423,7 @@ impl<T, W, E> WResult<T, W, E>
     ///
     /// # Panics
     /// Panics if the value is a `WErr`, with a panic message provided by the error's value.
+    #[inline]
     pub fn unwrap_discard(self) -> T {
         self.expect_discard("called `WResult::unwrap()` on a `WErr` value")
     }
@@ -402,6 +433,7 @@ impl<T, W, E> WResult<T, W, E>
     /// # Panics
     /// Panics if the value is a `WErr`, with a panic message provided by the passed message, and
     /// the content of the error.
+    #[inline]
     pub fn expect_discard(self, msg_error: &str) -> T {
         match self {
             WOk(t, _) => t,
@@ -418,6 +450,7 @@ impl<T, W, E> WResult<T, W, E>
     ///
     /// # Panics
     /// Panics if the value is a `WErr`, with a panic message provided by the error's value.
+    #[inline]
     pub fn unwrap_log(self) -> T {
         self.expect_log("called `WResult::unwrap()` on a `WErr` value")
     }
@@ -427,6 +460,7 @@ impl<T, W, E> WResult<T, W, E>
     /// # Panics
     /// Panics if the value is a `WErr`, with a panic message provided by the passed message, and
     /// the content of the error.
+    #[inline]
     pub fn expect_log(self, msg: &str) -> T {
         match self {
             WOk(t, ws) => {
@@ -444,11 +478,13 @@ impl<T, W, E> WResult<T, W, E>
     where T: Default
 {
     /// Returns the value in `WOk`, discarding any warnings.
+    #[inline]
     pub fn unwrap_discard_or_default(self) -> T {
         self.unwrap_discard_or(T::default())
     }
 
     /// Returns the value in `WOk` if there are no warnings, or a default.
+    #[inline]
     pub fn unwrap_werr_or_default(self) -> T {
         self.unwrap_werr_or(T::default())
     }
@@ -459,6 +495,7 @@ impl<T, W, E> WResult<T, W, E>
           W: fmt::Display
 {
     /// Unwrap the value in `WOk`, logging any warnings.
+    #[inline]
     pub fn unwrap_log_or_default(self) -> T {
         self.unwrap_log_or(T::default())
     }
