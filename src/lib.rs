@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 //! Defines `WResult`, a result type that carries warnings.
 //!
 //! Sometimes it may be possible for an operation to proceed despite encountering errors. In these
@@ -10,7 +11,7 @@
 #[macro_use]
 extern crate log;
 
-use std::fmt;
+use std::fmt::{self, Write};
 use std::iter::FromIterator;
 
 pub use self::WResult::*;
@@ -39,6 +40,14 @@ impl<T, W, E> WResult<T, W, E> {
         match *self {
             WOk(_, _) => true,
             WErr(_) => false,
+        }
+    }
+
+    /// Returns `true` if this `WResult` is `WOk` with warnings
+    pub fn is_warnings(&self) -> bool {
+        match *self {
+            WOk(_, ref ws) if !ws.is_empty() => true,
+            _ => false
         }
     }
 
@@ -156,6 +165,16 @@ impl<T, W, E> WResult<T, W, E> {
         }
     }
 
+    /// Perform a 1:1 mapping to `Result`.
+    pub fn result(self) -> Result<(T, Vec<W>), E> {
+        match self {
+            WOk(t, ws) => {
+                Ok((t, ws))
+            },
+            WErr(e) => Err(e)
+        }
+    }
+
     /// Convert this `WResult<T, W, E>` to a `Result<T, E>`, discarding any errors. See also
     /// `result_log` for a version of this function that logs warnings.
     pub fn result_discard(self) -> Result<T, E> {
@@ -209,6 +228,20 @@ impl<T, W, E> WResult<T, W, E> {
                 _ => t,
             },
             WErr(_) => optb,
+        }
+    }
+
+    /// If `self` is `WOk` and has no warnings, unwraps it. Otherwise returns the result of
+    /// applying `op` to the union of the warnings and `self`'s error value.
+    pub fn unwrap_werr_union_or_else<F>(self, op: F) -> T
+        where F: FnOnce(Result<Vec<W>, E>) -> T
+    {
+        match self {
+            WOk(t, ws) => match ws.len() {
+                0 => op(Ok(ws)),
+                _ => t,
+            },
+            WErr(e) => op(Err(e)),
         }
     }
 }
@@ -319,6 +352,133 @@ impl<T, W, E> WResult<T, W, E>
             WErr(e) => op(e),
         }
     }
+}
+
+impl<T, W, E> WResult<T, W, E>
+    where W: fmt::Debug,
+          E: fmt::Debug
+{
+    /// Unwraps a `WResult`, yielding the contents of `WOk` if there are no warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr` or `WOk` with warnings, with a panic message provided by
+    /// the respective values.
+    pub fn unwrap_werr(self) -> T {
+        self.expect_werr(
+            "called `WResult::unwrap()`on `WOk` value with warnings",
+            "called `WResult::unwrap()` on a `WErr` value"
+        )
+    }
+
+    /// Unwraps a `WResult`, yielding the contents of `WOk` if there are no warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr` or `WOk` with warnings, with a panic message provided by
+    /// the passed messages, and the content of the warnings/errors.
+    pub fn expect_werr(self, msg_warn: &str, msg_error: &str) -> T {
+        match self {
+            WOk(t, ws) => match ws.is_empty() {
+                true => t,
+                false => unwrap_failed_warn(msg_warn, ws)
+            },
+            WErr(e) => unwrap_failed_err(msg_error, e)
+        }
+    }
+}
+
+impl<T, W, E> WResult<T, W, E>
+    where E: fmt::Debug
+{
+    /// Unwrap the value in `WOk`, discarding any warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr`, with a panic message provided by the error's value.
+    pub fn unwrap_discard(self) -> T {
+        self.expect_discard("called `WResult::unwrap()` on a `WErr` value")
+    }
+
+    /// Unwrap the value in `WOk`, discarding any warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr`, with a panic message provided by the passed message, and
+    /// the content of the error.
+    pub fn expect_discard(self, msg_error: &str) -> T {
+        match self {
+            WOk(t, _) => t,
+            WErr(e) => unwrap_failed_err(msg_error, e)
+        }
+    }
+}
+
+impl<T, W, E> WResult<T, W, E>
+    where W: fmt::Display,
+          E: fmt::Debug
+{
+    /// Unwrap the value in `WOk`, logging any warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr`, with a panic message provided by the error's value.
+    pub fn unwrap_log(self) -> T {
+        self.expect_log("called `WResult::unwrap()` on a `WErr` value")
+    }
+
+    /// Unwrap the value in `WOk`, logging any warnings.
+    ///
+    /// # Panics
+    /// Panics if the value is a `WErr`, with a panic message provided by the passed message, and
+    /// the content of the error.
+    pub fn expect_log(self, msg: &str) -> T {
+        match self {
+            WOk(t, ws) => {
+                for w in ws {
+                    warn!("{}", w);
+                }
+                t
+            },
+            WErr(e) => unwrap_failed_err(msg, e)
+        }
+    }
+}
+
+impl<T, W, E> WResult<T, W, E>
+    where T: Default
+{
+    /// Returns the value in `WOk`, discarding any warnings.
+    pub fn unwrap_discard_or_default(self) -> T {
+        self.unwrap_discard_or(T::default())
+    }
+
+    /// Returns the value in `WOk` if there are no warnings, or a default.
+    pub fn unwrap_werr_or_default(self) -> T {
+        self.unwrap_werr_or(T::default())
+    }
+}
+
+impl<T, W, E> WResult<T, W, E>
+    where T: Default,
+          W: fmt::Display
+{
+    /// Unwrap the value in `WOk`, logging any warnings.
+    pub fn unwrap_log_or_default(self) -> T {
+        self.unwrap_log_or(T::default())
+    }
+}
+
+#[inline(never)]
+#[cold]
+fn unwrap_failed_warn<W: fmt::Debug>(msg: &str, ws: Vec<W>) -> ! {
+    // ws_agg stores all warnings aggregated into one string
+    let mut ws_agg = String::new();
+    for w in ws {
+        write!(ws_agg, " {:?},", w).ok();
+    }
+    panic!("{}:{}", msg, ws_agg)
+}
+
+#[inline(never)]
+#[cold]
+fn unwrap_failed_err<E: fmt::Debug>(msg: &str, error: E) -> ! {
+    panic!("{}: {:?}", msg, error)
 }
 
 impl<T, W, E> From<Result<T, E>> for WResult<T, W, E> {
