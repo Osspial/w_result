@@ -165,17 +165,15 @@ impl<T, W, E> WResult<T, W, E> {
         }
     }
 
-    /// Convert this `WResult<T, W, E>` to a `Result<T, Result<W, E>>`. This is a way to convert
+    /// Convert this `WResult<T, W, E>` to a `Result<T, Result<Vec<W>, E>>`. This is a way to convert
     /// from `WResult` to `Result`, treating warnings as errors but allowing `W` and `E` to be two
-    /// different types. See also `result_werr` for when `W` and `E` are the same type. If there
-    /// are multiple warnings the first is returned.
-    pub fn result_werr_res(self) -> Result<T, Result<W, E>> {
+    /// different types.
+    pub fn result_werr_union(self) -> Result<T, Result<Vec<W>, E>> {
         match self {
-            WOk(t, mut ws) => {
-                ws.truncate(1);
-                match ws.pop() {
-                    Some(w) => Err(Ok(w)),
-                    None => Ok(t),
+            WOk(t, ws) => {
+                match ws.is_empty() {
+                    true => Ok(t),
+                    false => Err(Ok(ws)),
                 }
             }
             WErr(e) => Err(Err(e)),
@@ -231,16 +229,15 @@ impl<T, E> WResult<T, E, E> {
 
     /// Convert this `WResult` to a `Result` but treat warnings as errors. If there are multiple
     /// warnings the first is returned.
-    pub fn result_werr(self) -> Result<T, E> {
+    pub fn result_werr(self) -> Result<T, Vec<E>> {
         match self {
-            WOk(t, mut ws) => {
-                ws.truncate(1);
-                match ws.pop() {
-                    Some(w) => Err(w),
-                    None => Ok(t),
+            WOk(t, ws) => {
+                match ws.is_empty() {
+                    true => Ok(t),
+                    false => Err(ws),
                 }
             },
-            WErr(e) => Err(e),
+            WErr(e) => Err(vec![e]),
         }
     }
 
