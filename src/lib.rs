@@ -5,7 +5,7 @@
 //! `Result` except that the ok variant carries a vector of accumulated warnings. It comes with
 //! methods for converting to a `Result` by discarding or logging the warnings or treating them as
 //! errors.
-//! 
+//!
 
 #[macro_use]
 extern crate log;
@@ -43,7 +43,7 @@ impl<T, W, E> WResult<T, W, E> {
     }
 
     /// Returns true if this `WResult` is `WErr` or if it is `WOk` but contains warnings.
-    pub fn is_warn_or_err(&self) -> bool {
+    pub fn is_warnings_or_err(&self) -> bool {
         match *self {
             WOk(_, ref ws) => ws.len() > 0,
             WErr(_) => true,
@@ -191,17 +191,6 @@ impl<T, W, E> WResult<T, W, E> {
         }
     }
 
-    /// If `self` is `WOk` and has no warnings, unwraps it. Otherwise returns `optb`.
-    pub fn unwrap_or_werr(self, optb: T) -> T {
-        match self {
-            WOk(t, ws) => match ws.len() {
-                0 => optb,
-                _ => t,
-            },
-            WErr(_) => optb,
-        }
-    }
-
     /// If `self` is `WOk`, unwraps it discarding any warnings. Otherwise returns the result of
     /// applying `op` to `self`'s error value. See also `unwrap_log_or_else` for a version of this
     /// function that logs warnings.
@@ -211,6 +200,17 @@ impl<T, W, E> WResult<T, W, E> {
         match self {
             WOk(t, _) => t,
             WErr(e) => op(e),
+        }
+    }
+
+    /// If `self` is `WOk` and has no warnings, unwraps it. Otherwise returns `optb`.
+    pub fn unwrap_werr_or(self, optb: T) -> T {
+        match self {
+            WOk(t, ws) => match ws.len() {
+                0 => optb,
+                _ => t,
+            },
+            WErr(_) => optb,
         }
     }
 }
@@ -246,7 +246,7 @@ impl<T, E> WResult<T, E, E> {
 
     /// If `self` is `WOk` and has no warnings then unwrap it. Otherwise return the result of
     /// applying `op` to `self`'s error or first warning.
-    pub fn unwrap_or_else_werr<F>(self, op: F) -> T 
+    pub fn unwrap_werr_or_else<F>(self, op: F) -> T
         where F: FnOnce(E) -> T
     {
         match self {
@@ -365,7 +365,7 @@ impl<A, T, W, E> FromIterator<WResult<A, W, E>> for WResult<T, W, E>
 
         let mut adapter = Adapter { iter: iter.into_iter(), warnings: Vec::new(), err: None };
         let t: T = FromIterator::from_iter(adapter.by_ref());
-        
+
         match adapter.err {
             Some(e) => WErr(e),
             None => WOk(t, adapter.warnings),
